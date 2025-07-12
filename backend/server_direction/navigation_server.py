@@ -78,217 +78,18 @@ class SpeakRequest(BaseModel):
     text: str
     lang: str = "en"
 
-class ObjectTrackingBuffer:
-    """
-    Buffer system to track object positions over time and guide users to last known locations
-    """
-    def __init__(self, buffer_file: str = "object_tracking_buffer.json", max_age_minutes: int = 30):
-        self.buffer_file = buffer_file
-        self.max_age_seconds = max_age_minutes * 60
-        self.tracked_objects = {}
-        self.load_buffer()
-    
-    def load_buffer(self):
-        """Load existing buffer from JSON file"""
-        try:
-            if os.path.exists(self.buffer_file):
-                with open(self.buffer_file, 'r') as f:
-                    data = json.load(f)
-                    self.tracked_objects = data.get('tracked_objects', {})
-                    print(f"✅ Loaded {len(self.tracked_objects)} tracked objects from buffer")
-            else:
-                self.tracked_objects = {}
-                print("📝 Created new object tracking buffer")
-        except Exception as e:
-            print(f"⚠️ Error loading buffer: {e}")
-            self.tracked_objects = {}
-    
-    def save_buffer(self):
-        """Save buffer to JSON file"""
-        try:
-            buffer_data = {
-                'tracked_objects': self.tracked_objects,
-                'last_updated': datetime.now().isoformat(),
-                'version': '1.0'
-            }
-            
-            with open(self.buffer_file, 'w') as f:
-                json.dump(buffer_data, f, indent=2)
-            
-            print(f"💾 Saved buffer with {len(self.tracked_objects)} objects")
-        except Exception as e:
-            print(f"❌ Error saving buffer: {e}")
-    
-    def update_object_position(self, object_class: str, bbox: tuple, confidence: float, frame_shape: tuple, depth_estimate: float = None):
-        """
-        Update the position of a detected object
-        
-        Args:
-            object_class: Class name of the object (e.g., 'bottle', 'person')
-            bbox: Bounding box coordinates (x1, y1, x2, y2)
-            confidence: Detection confidence
-            frame_shape: Shape of the frame (height, width)
-            depth_estimate: Estimated depth in centimeters
-        """
-        current_time = time.time()
-        
-        # Calculate normalized position (0-1 range for frame independence)
-        x1, y1, x2, y2 = bbox
-        center_x = (x1 + x2) / 2 / frame_shape[1]  # Normalize by width
-        center_y = (y1 + y2) / 2 / frame_shape[0]  # Normalize by height
-        
-        # Calculate relative size
-        width_ratio = (x2 - x1) / frame_shape[1]
-        height_ratio = (y2 - y1) / frame_shape[0]
-        
-        object_data = {
-            'class': object_class,
-            'last_seen': current_time,
-            'timestamp': datetime.now().isoformat(),
-            'position': {
-                'center_x': center_x,
-                'center_y': center_y,
-                'width_ratio': width_ratio,
-                'height_ratio': height_ratio
-            },
-            'confidence': confidence,
-            'depth_estimate': depth_estimate,
-            'frame_shape': frame_shape,
-            'bbox_absolute': list(bbox),  # Store absolute coordinates for reference
-            'detection_count': self.tracked_objects.get(object_class, {}).get('detection_count', 0) + 1
-        }
-        
-        self.tracked_objects[object_class] = object_data
-        print(f"📍 Updated position for {object_class} (confidence: {confidence:.2f})")
-    
-    def get_last_known_position(self, object_class: str) -> Optional[Dict]:
-        """
-        Get the last known position of an object
-        
-        Args:
-            object_class: Class name of the object
-            
-        Returns:
-            Dictionary with position data or None if not found/expired
-        """
-        if object_class not in self.tracked_objects:
-            return None
-        
-        object_data = self.tracked_objects[object_class]
-        current_time = time.time()
-        
-        # Check if the data is still valid (not too old)
-        if current_time - object_data['last_seen'] > self.max_age_seconds:
-            print(f"⏰ Position data for {object_class} is too old, removing from buffer")
-            del self.tracked_objects[object_class]
-            return None
-        
-        return object_data
-    
-    def cleanup_old_entries(self):
-        """Remove old entries from the buffer"""
-        current_time = time.time()
-        to_remove = []
-        
-        for object_class, object_data in self.tracked_objects.items():
-            if current_time - object_data['last_seen'] > self.max_age_seconds:
-                to_remove.append(object_class)
-        
-        for object_class in to_remove:
-            del self.tracked_objects[object_class]
-            print(f"🗑️ Removed expired entry for {object_class}")
-        
-        if to_remove:
-            self.save_buffer()
-    
-    def get_all_tracked_objects(self) -> Dict:
-        """Get all currently tracked objects"""
-        self.cleanup_old_entries()
-        return self.tracked_objects.copy()
-    
-    def calculate_navigation_to_last_position(self, target_class: str, current_frame_shape: tuple) -> Optional[Dict]:
-        """
-        Calculate navigation instructions to guide user to last known position of target
-        
-        Args:
-            target_class: Class name of the target object
-            current_frame_shape: Current frame dimensions
-            
-        Returns:
-            Navigation instruction dict or None if no valid position
-        """
-        last_position = self.get_last_known_position(target_class)
-        if not last_position:
-            return None
-        
-        pos = last_position['position']
-        
-        # Convert normalized coordinates back to current frame
-        target_center_x = pos['center_x'] * current_frame_shape[1]
-        target_center_y = pos['center_y'] * current_frame_shape[0]
-        
-        # Calculate frame center
-        frame_center_x = current_frame_shape[1] / 2
-        frame_center_y = current_frame_shape[0] / 2
-        
-        # Calculate relative position
-        dx = target_center_x - frame_center_x
-        dy = target_center_y - frame_center_y
-        
-        # Generate navigation instruction
-        horizontal_instruction = ""
-        vertical_instruction = ""
-        
-        # Horizontal guidance
-        if abs(dx) > current_frame_shape[1] * 0.1:  # 10% threshold
-            if dx > 0:
-                horizontal_instruction = "turn right"
-            else:
-                horizontal_instruction = "turn left"
-        
-        # Vertical guidance
-        if abs(dy) > current_frame_shape[0] * 0.1:  # 10% threshold
-            if dy > 0:
-                vertical_instruction = "look down"
-            else:
-                vertical_instruction = "look up"
-        
-        # Combine instructions
-        instructions = []
-        if horizontal_instruction:
-            instructions.append(horizontal_instruction)
-        if vertical_instruction:
-            instructions.append(vertical_instruction)
-        
-        if not instructions:
-            instruction = "The target should be right in front of you"
-        else:
-            instruction = "To find the target, " + " and ".join(instructions)
-        
-        # Calculate approximate age of the data
-        age_minutes = (time.time() - last_position['last_seen']) / 60
-        
-        return {
-            'instruction': instruction,
-            'confidence': max(0.3, 0.8 - (age_minutes * 0.1)),  # Decrease confidence with age
-            'last_seen_minutes_ago': age_minutes,
-            'position_data': last_position,
-            'target_direction': horizontal_instruction if horizontal_instruction else "ahead"
-        }
-
 class NavigationServer:
     def __init__(self, target_item: str = 'bottle', camera_id: int = 0):
         """Initialize the navigation server"""
         self.app = FastAPI(title="Navigation Assistant", version="1.0.0")
         
-        # Enable CORS for frontend access - Allow all requests
+        # Enable CORS for frontend access
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],  # Allow all origins
-            allow_credentials=False,  # Set to False when using wildcard origins
-            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],  # All HTTP methods
-            allow_headers=["*"],  # Allow all headers
-            expose_headers=["*"],  # Expose all headers to frontend
+            allow_origins=["*"],  # In production, replace with your frontend domain
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
         )
         
         self.navigation_system = RobustObjectNavigationSystem(target_item=target_item)
@@ -346,12 +147,12 @@ class NavigationServer:
         self.translate_enabled = TRANSLATE_AVAILABLE
         if self.translate_enabled:
             self.translator = Translator()
+            print("Google Translate available for multilingual support")
+        else:
+            print("Warning: Google Translate not available. Translation features disabled.")
         
-        # Object Tracking Buffer System
-        self.object_buffer = ObjectTrackingBuffer()
-        self.buffer_update_interval = 3.0  # Update buffer every 3 seconds
-        self.last_buffer_update = 0
-        self.object_tracking_active = True
+        # Track last spoken instruction to avoid repeating
+        self.last_spoken_instruction = ""
         
         # Setup routes
         self.setup_routes()
@@ -468,120 +269,10 @@ class NavigationServer:
                 media_type="multipart/x-mixed-replace; boundary=frame"
             )
         
-        # Object Tracking Buffer Endpoints
-        @self.app.get("/api/buffer/objects")
-        async def get_tracked_objects():
-            """Get all currently tracked objects from buffer"""
-            try:
-                tracked_objects = self.object_buffer.get_all_tracked_objects()
-                return {
-                    "tracked_objects": tracked_objects,
-                    "count": len(tracked_objects),
-                    "last_updated": datetime.now().isoformat(),
-                    "buffer_max_age_minutes": self.object_buffer.max_age_seconds / 60
-                }
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-        
-        @self.app.get("/api/buffer/object/{object_class}")
-        async def get_object_last_position(object_class: str):
-            """Get last known position of a specific object"""
-            try:
-                position_data = self.object_buffer.get_last_known_position(object_class)
-                if position_data:
-                    return {
-                        "found": True,
-                        "object_class": object_class,
-                        "position_data": position_data,
-                        "age_minutes": (time.time() - position_data['last_seen']) / 60
-                    }
-                else:
-                    return {
-                        "found": False,
-                        "object_class": object_class,
-                        "message": "Object not found in buffer or data too old"
-                    }
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-        
-        @self.app.post("/api/buffer/navigate_to/{object_class}")
-        async def navigate_to_last_position(object_class: str):
-            """Get navigation instructions to last known position of object"""
-            try:
-                if not hasattr(self, 'cap') or not self.cap or not self.cap.isOpened():
-                    raise HTTPException(status_code=400, detail="Camera not available for frame reference")
-                
-                # Get a frame for reference
-                ret, frame = self.cap.read()
-                if not ret:
-                    raise HTTPException(status_code=400, detail="Could not capture frame for navigation")
-                
-                navigation_data = self.object_buffer.calculate_navigation_to_last_position(
-                    object_class, frame.shape
-                )
-                
-                if navigation_data:
-                    return {
-                        "success": True,
-                        "object_class": object_class,
-                        "navigation": navigation_data,
-                        "instruction": navigation_data['instruction'],
-                        "confidence": navigation_data['confidence'],
-                        "last_seen_minutes_ago": navigation_data['last_seen_minutes_ago']
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "object_class": object_class,
-                        "message": "No valid position data found for navigation"
-                    }
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-        
-        @self.app.delete("/api/buffer/clear")
-        async def clear_buffer():
-            """Clear all objects from tracking buffer"""
-            try:
-                self.object_buffer.tracked_objects.clear()
-                self.object_buffer.save_buffer()
-                return {
-                    "success": True,
-                    "message": "Object tracking buffer cleared"
-                }
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-        
-        @self.app.delete("/api/buffer/object/{object_class}")
-        async def remove_object_from_buffer(object_class: str):
-            """Remove specific object from tracking buffer"""
-            try:
-                if object_class in self.object_buffer.tracked_objects:
-                    del self.object_buffer.tracked_objects[object_class]
-                    self.object_buffer.save_buffer()
-                    return {
-                        "success": True,
-                        "message": f"Removed {object_class} from buffer"
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "message": f"Object {object_class} not found in buffer"
-                    }
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-        
-        @self.app.post("/api/buffer/toggle")
-        async def toggle_object_tracking():
-            """Toggle object tracking buffer on/off"""
-            try:
-                self.object_tracking_active = not self.object_tracking_active
-                return {
-                    "success": True,
-                    "object_tracking_active": self.object_tracking_active,
-                    "message": f"Object tracking {'enabled' if self.object_tracking_active else 'disabled'}"
-                }
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+        @self.app.websocket("/ws")
+        async def websocket_endpoint(websocket: WebSocket):
+            """WebSocket for real-time instructions"""
+            await self.websocket_handler(websocket)
         
         @self.app.post("/api/speak")
         async def speak(request: Request):
@@ -766,33 +457,6 @@ class NavigationServer:
         
         if not technical_instruction:
             return "I'm looking around to help you."
-        
-        # Handle memory guidance (when using last known position)
-        if "MEMORY_GUIDANCE:" in technical_instruction:
-            # Extract the guidance instruction and timing info
-            parts = technical_instruction.split("MEMORY_GUIDANCE:", 1)
-            if len(parts) > 1:
-                guidance_part = parts[1].strip()
-                # Extract the instruction and timing
-                if "(" in guidance_part and "min ago)" in guidance_part:
-                    instruction_part = guidance_part.split("(")[0].strip()
-                    time_part = guidance_part.split("(")[1].replace(")", "").strip()
-                    
-                    # Create natural language for memory guidance
-                    if "turn right" in instruction_part.lower():
-                        direction = "turn to your right"
-                    elif "turn left" in instruction_part.lower():
-                        direction = "turn to your left"
-                    elif "look up" in instruction_part.lower():
-                        direction = "look up"
-                    elif "look down" in instruction_part.lower():
-                        direction = "look down"
-                    else:
-                        direction = instruction_part.lower()
-                    
-                    return f"I remember seeing the {self.navigation_system.target_item} nearby. Try to {direction} - I saw it there {time_part}."
-                else:
-                    return f"I remember seeing the {self.navigation_system.target_item} in this area. Let me guide you to where I last saw it."
         
         # Remove technical markers
         instruction = technical_instruction.replace("[", "").replace("]", "")
@@ -1103,12 +767,6 @@ class NavigationServer:
                 # Process frame with navigation system
                 processed_frame = self.navigation_system.process_frame(frame.copy())
                 
-                # Update object tracking buffer every few seconds
-                if (self.object_tracking_active and 
-                    current_time - self.last_buffer_update >= self.buffer_update_interval):
-                    self.update_object_buffer(frame)
-                    self.last_buffer_update = current_time
-                
                 # Update frame queue (non-blocking)
                 try:
                     if not self.frame_queue.full():
@@ -1123,20 +781,6 @@ class NavigationServer:
                     # Get current instruction from navigation system
                     technical_instruction = getattr(self.navigation_system, '_last_instruction', 'Processing...')
                     
-                    # Check detection status
-                    person_detected = self.navigation_system.person_tracker.get_best_person()[0] is not None
-                    target_detected = self.navigation_system.target_tracker.get_best_target()[0] is not None
-                    
-                    # If target is not detected, try to guide to last known position
-                    if not target_detected:
-                        buffer_navigation = self.object_buffer.calculate_navigation_to_last_position(
-                            self.navigation_system.target_item, 
-                            frame.shape
-                        )
-                        if buffer_navigation:
-                            technical_instruction = f"MEMORY_GUIDANCE: {buffer_navigation['instruction']} (last seen {buffer_navigation['last_seen_minutes_ago']:.1f} min ago)"
-                            print(f"🧠 Using memory guidance: {technical_instruction}")
-                    
                     # Convert to natural language
                     natural_instruction_raw = self.convert_to_natural_language(technical_instruction)
                     
@@ -1145,6 +789,10 @@ class NavigationServer:
                     
                     # Extract navigation data
                     nav_data = self.extract_navigation_data(technical_instruction)
+                    
+                    # Check detection status
+                    person_detected = self.navigation_system.person_tracker.get_best_person()[0] is not None
+                    target_detected = self.navigation_system.target_tracker.get_best_target()[0] is not None
                     
                     # Create instruction object
                     instruction = NavigationInstruction(
@@ -1205,8 +853,6 @@ class NavigationServer:
                 # Cleanup old audio files periodically
                 if current_time - last_cleanup_time >= cleanup_interval:
                     self.cleanup_old_audio_files()
-                    # Also cleanup old buffer entries
-                    self.object_buffer.cleanup_old_entries()
                     last_cleanup_time = current_time
                 
                 time.sleep(0.04)  # Slightly slower FPS for better stability (~25 FPS)
@@ -1214,49 +860,6 @@ class NavigationServer:
             except Exception as e:
                 print(f"Processing error: {e}")
                 time.sleep(0.1)
-    
-    def update_object_buffer(self, frame):
-        """
-        Update the object tracking buffer with current detections
-        """
-        try:
-            # Get current detections from the navigation system
-            if hasattr(self.navigation_system, 'model'):
-                # Run YOLO detection on current frame
-                results = self.navigation_system.model(frame)
-                
-                for r in results:
-                    boxes = r.boxes
-                    if boxes is not None:
-                        for box in boxes:
-                            cls = int(box.cls[0])
-                            class_name = self.navigation_system.model.names[cls]
-                            confidence = float(box.conf[0])
-                            bbox = box.xyxy[0].cpu().numpy()
-                            
-                            # Only track objects with reasonable confidence
-                            if confidence > 0.3:
-                                # Estimate depth if available
-                                depth_estimate = None
-                                if hasattr(self.navigation_system, 'estimate_depth_multi_method'):
-                                    depth_estimate = self.navigation_system.estimate_depth_multi_method(
-                                        bbox, class_name, frame_shape=frame.shape
-                                    )
-                                
-                                # Update buffer
-                                self.object_buffer.update_object_position(
-                                    object_class=class_name,
-                                    bbox=tuple(bbox),
-                                    confidence=confidence,
-                                    frame_shape=frame.shape,
-                                    depth_estimate=depth_estimate
-                                )
-                
-                # Save buffer periodically
-                self.object_buffer.save_buffer()
-                
-        except Exception as e:
-            print(f"Error updating object buffer: {e}")
     
     def generate_video_stream(self):
         """Generate video stream for HTTP endpoint"""

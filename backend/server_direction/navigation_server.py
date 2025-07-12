@@ -747,9 +747,9 @@ class NavigationServer:
     def processing_loop(self):
         """Main processing loop for camera frames"""
         last_instruction_time = 0
-        instruction_cooldown = 5.0  # Give instructions every 5 seconds
+        instruction_cooldown = 2.0  # Give instructions every 2 seconds
         last_tts_time = 0
-        tts_cooldown = 5.0  # Speak every 5 seconds
+        tts_cooldown = 2.0  # Speak every 2 seconds
         last_cleanup_time = 0
         cleanup_interval = 60.0  # Clean up every minute
         

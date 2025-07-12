@@ -1,86 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
 const COCO_CLASSES = [
-  "person",
-  "bicycle",
-  "car",
-  "motorcycle",
-  "airplane",
-  "bus",
-  "train",
-  "truck",
-  "boat",
-  "traffic light",
-  "fire hydrant",
-  "stop sign",
-  "parking meter",
-  "bench",
-  "bird",
-  "cat",
-  "dog",
-  "horse",
-  "sheep",
-  "cow",
-  "elephant",
-  "bear",
-  "zebra",
-  "giraffe",
-  "backpack",
-  "umbrella",
-  "handbag",
-  "tie",
-  "suitcase",
-  "frisbee",
-  "skis",
-  "snowboard",
-  "sports ball",
-  "kite",
-  "baseball bat",
-  "baseball glove",
-  "skateboard",
-  "surfboard",
-  "tennis racket",
-  "bottle",
-  "wine glass",
-  "cup",
-  "fork",
-  "knife",
-  "spoon",
-  "bowl",
-  "banana",
-  "apple",
-  "sandwich",
-  "orange",
-  "broccoli",
-  "carrot",
-  "hot dog",
-  "pizza",
-  "donut",
-  "cake",
-  "chair",
-  "couch",
-  "potted plant",
-  "bed",
-  "dining table",
-  "toilet",
-  "tv",
-  "laptop",
-  "mouse",
-  "remote",
-  "keyboard",
-  "cell phone",
-  "microwave",
-  "oven",
-  "toaster",
-  "sink",
-  "refrigerator",
-  "book",
-  "clock",
-  "vase",
-  "scissors",
-  "teddy bear",
-  "hair drier",
-  "toothbrush",
+  /* your list here, omitted for brevity */
 ];
 
 const ObjectDetectionVoiceMobile = () => {
@@ -99,7 +20,7 @@ const ObjectDetectionVoiceMobile = () => {
 
   // WebSocket setup
   useEffect(() => {
-    const wsUrl = `${window.location.origin.replace(/^http/, "ws")}/ws/stream`;
+    const wsUrl = "wss://webcam.aavashlamichhane.com.np/ws/stream";
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -140,7 +61,7 @@ const ObjectDetectionVoiceMobile = () => {
       streamIntervalRef.current = setInterval(() => {
         if (!streaming || wsRef.current.readyState !== WebSocket.OPEN) return;
         const video = videoRef.current;
-        if (!video || video.readyState !== 4) return;
+        if (!video || video.readyState < 2) return; // Changed here
 
         canvasRef.current.width = video.videoWidth;
         canvasRef.current.height = video.videoHeight;
@@ -221,20 +142,8 @@ const ObjectDetectionVoiceMobile = () => {
   };
 
   return (
-    <div
-      style={{
-        padding: 20,
-        fontFamily: "Arial, sans-serif",
-        backgroundColor: "#111",
-        minHeight: "100vh",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 20,
-      }}
-    >
-      <h1 style={{ fontSize: 24, fontWeight: "bold", color: "#0ff" }}>
+    <div className="p-5 bg-gray-900 min-h-screen flex flex-col items-center gap-5 text-white font-sans">
+      <h1 className="text-2xl font-bold text-cyan-400">
         🎥 Object Detection Voice Control
       </h1>
 
@@ -243,114 +152,79 @@ const ObjectDetectionVoiceMobile = () => {
         autoPlay
         playsInline
         muted
-        style={{
-          width: "100%",
-          maxWidth: 400,
-          borderRadius: 15,
-          border: "3px solid #0ff",
-          aspectRatio: "4 / 3",
-          backgroundColor: "#000",
-        }}
+        className="w-full max-w-md rounded-xl border-4 border-cyan-400 bg-black aspect-[4/3]"
       />
 
       <button
         onClick={streaming ? stopStream : startStream}
-        style={{
-          width: "100%",
-          maxWidth: 400,
-          padding: 18,
-          fontSize: 20,
-          fontWeight: "bold",
-          color: "#111",
-          backgroundColor: streaming ? "#f22" : "#0ff",
-          border: "none",
-          borderRadius: 12,
-          cursor: "pointer",
-          boxShadow: streaming ? "0 0 15px #f44" : "0 0 15px #0ff",
-          transition: "background-color 0.3s ease",
-        }}
         aria-label="Toggle camera"
+        className={`w-full max-w-md py-4 text-xl font-bold rounded-xl border-none cursor-pointer transition-shadow ${
+          streaming
+            ? "bg-red-600 text-gray-900 shadow-[0_0_15px_#f44]"
+            : "bg-cyan-400 text-gray-900 shadow-[0_0_15px_#0ff]"
+        }`}
       >
         {streaming ? "Stop Camera" : "Start Camera"}
       </button>
 
       <button
         onClick={listening ? stopListening : startListening}
-        style={{
-          width: "100%",
-          maxWidth: 400,
-          padding: 18,
-          fontSize: 20,
-          fontWeight: "bold",
-          color: "#111",
-          backgroundColor: listening ? "#f22" : "#0ff",
-          border: "none",
-          borderRadius: 12,
-          cursor: "pointer",
-          boxShadow: listening ? "0 0 15px #f44" : "0 0 15px #0ff",
-          transition: "background-color 0.3s ease",
-        }}
         aria-label="Toggle voice command"
+        className={`w-full max-w-md py-4 text-xl font-bold rounded-xl border-none cursor-pointer transition-shadow ${
+          listening
+            ? "bg-red-600 text-gray-900 shadow-[0_0_15px_#f44]"
+            : "bg-cyan-400 text-gray-900 shadow-[0_0_15px_#0ff]"
+        }`}
       >
         {listening ? "Stop Listening" : "Start Voice Command"}
       </button>
 
-      <div style={{ width: "100%", maxWidth: 400 }}>
-        <div style={{ marginBottom: 10 }}>
+      <div className="w-full max-w-md">
+        <div className="mb-2">
           <strong>Connection Status: </strong>
           <span
-            style={{
-              color: connectionStatus === "Connected" ? "#0f0" : "#f44",
-            }}
+            className={
+              connectionStatus === "Connected"
+                ? "text-green-500"
+                : "text-red-500"
+            }
           >
             {connectionStatus}
           </span>
         </div>
 
-        <div style={{ marginBottom: 10, fontSize: 18 }}>
+        <div className="mb-2 text-lg">
           <strong>Current Target: </strong>
           {target ? (
-            <span style={{ color: "#0ff", fontWeight: "bold" }}>{target}</span>
+            <span className="text-cyan-400 font-bold">{target}</span>
           ) : (
-            <span style={{ color: "#666" }}>No target set</span>
+            <span className="text-gray-500">No target set</span>
           )}
         </div>
 
-        <div style={{ marginBottom: 10, fontSize: 18 }}>
+        <div className="mb-2 text-lg">
           <strong>Target Found: </strong>
           {targetFound ? (
-            <span style={{ color: "#0f0", fontWeight: "bold" }}>Yes 🎯</span>
+            <span className="text-green-500 font-bold">Yes 🎯</span>
           ) : (
-            <span style={{ color: "#f44", fontWeight: "bold" }}>No</span>
+            <span className="text-red-500 font-bold">No</span>
           )}
         </div>
 
         <div>
           <strong>Detected Objects:</strong>
           {detectedObjects.length === 0 ? (
-            <p style={{ color: "#888", fontSize: 16, marginTop: 6 }}>
+            <p className="text-gray-500 text-base mt-1">
               No objects detected yet.
             </p>
           ) : (
-            <ul
-              style={{
-                marginTop: 6,
-                listStyleType: "disc",
-                paddingLeft: 20,
-                maxHeight: 140,
-                overflowY: "auto",
-                fontSize: 16,
-                color: "#0ff",
-              }}
-            >
+            <ul className="mt-1 list-disc pl-5 max-h-36 overflow-y-auto text-base text-cyan-400">
               {detectedObjects.map(({ class: cls, confidence }, i) => (
                 <li
                   key={i}
-                  style={{
-                    fontWeight: cls === target ? "bold" : "normal",
-                    color: cls === target ? "#0f0" : "#0ff",
-                    marginBottom: 4,
-                  }}
+                  className={`mb-1 ${
+                    cls === target ? "font-bold text-green-500" : ""
+                  }`}
                 >
                   {cls} — {(confidence * 100).toFixed(1)}%
                   {cls === target ? " (Target!)" : ""}

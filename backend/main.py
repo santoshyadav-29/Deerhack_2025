@@ -8,10 +8,9 @@ import os
 
 app = FastAPI()
 
-# CORS setup for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change to specific origin in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -20,11 +19,10 @@ app.add_middleware(
 AUDIO_DIR = "audio"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
-# Pydantic model for request body
 class SpeakRequest(BaseModel):
     text: str
     lang: str = "en"
-    translate: bool = False  # placeholder for future use
+    translate: bool = False
 
 @app.post("/api/speak")
 async def speak(req: SpeakRequest):

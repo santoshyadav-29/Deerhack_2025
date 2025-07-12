@@ -1,15 +1,25 @@
 import { useState, useEffect, useRef } from "react";
 
-const commandResponses: { [key: string]: string } = {
-  "what is your name": "My name is Anton.",
-  "what can you do":
-    "I can listen to your commands and respond. Try asking what time it is.",
-  "how are you":
-    "I am a computer program, so I don't have feelings, but I appreciate you asking!",
-  "what time is it": `The current time is ${new Date().toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}.`,
+const commandResponses: {
+  [key: string]: { text: string; lang?: string; translate?: boolean };
+} = {
+  "what is your name": { text: "My name is Anton." },
+  "what can you do": {
+    text: "I can listen to your commands and respond. Try asking what time it is.",
+  },
+  "how are you": {
+    text: "I am a computer program, so I don't have feelings, but I appreciate you asking!",
+  },
+  "what time is it": {
+    text: `The current time is ${new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}.`,
+  },
+  "speak in nepali": {
+    text: "तपाईंलाई कस्तो छ?",
+    lang: "ne",
+  },
 };
 
 function App() {
@@ -63,17 +73,27 @@ function App() {
       if (listeningRef.current && command.includes("bye")) {
         shouldRestartRef.current = false;
         setIsListening(false);
-        setStatusText("Goodbye! Say 'Hello Anton' to start again.");
+        setStatusText("Goodbye! Say 'Hello' to start again.");
         speak("Goodbye!");
         setTranscript("");
         return;
       }
 
       if (listeningRef.current && finalTranscript) {
-        const response =
-          commandResponses[command] || `I heard you say: ${finalTranscript}`;
-        setStatusText(response);
-        speak(response, "en", false);
+        const response = commandResponses[command];
+
+        if (response) {
+          setStatusText(response.text);
+          speak(
+            response.text,
+            response.lang || "en",
+            response.translate || false
+          );
+        } else {
+          setStatusText(`I heard you say: ${finalTranscript}`);
+          speak(finalTranscript);
+        }
+
         setTranscript("");
       }
     };
@@ -100,9 +120,7 @@ function App() {
   useEffect(() => {
     if (started) {
       const guideTimeout = setTimeout(() => {
-        speak(
-          "Welcome."
-        );
+        speak("Welcome.");
       }, 1000);
 
       return () => clearTimeout(guideTimeout);
@@ -126,7 +144,7 @@ function App() {
       const blob = await response.blob();
       const audioUrl = URL.createObjectURL(blob);
       const audio = new Audio(audioUrl);
-      await audio.play(); // will fail unless triggered by user
+      await audio.play();
     } catch (err) {
       console.error("Speech playback error:", err);
     }

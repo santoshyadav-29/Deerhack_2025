@@ -1,116 +1,141 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
-const COCO_CLASSES = [
-  "person",
-  "bicycle",
-  "car",
-  "motorcycle",
-  "airplane",
-  "bus",
-  "train",
-  "truck",
-  "boat",
-  "traffic light",
-  "fire hydrant",
-  "stop sign",
-  "parking meter",
-  "bench",
-  "bird",
-  "cat",
-  "dog",
-  "horse",
-  "sheep",
-  "cow",
-  "elephant",
-  "bear",
-  "zebra",
-  "giraffe",
-];
+// A mapping of commands to their voice responses.
+const commandResponses: { [key: string]: string } = {
+  "what is your name": "My name is Anton.",
+  "what can you do":
+    "I can listen to your commands and respond. Try asking me what time it is, or how I am.",
+  "how are you":
+    "I am a computer program, so I don't have feelings, but thank you for asking!",
+  "what time is it": `The time is ${new Date().toLocaleTimeString()}.`,
+};
 
 function App() {
-  const [isActive, setIsActive] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const recognitionRef = useRef(null);
+  const [statusText, setStatusText] = useState('Say "Hello Anton" to start.');
+
+  // A ref is used to hold the latest `isListening` state.
+  // This avoids issues with stale state in the `onresult` callback.
+  const listeningRef = useRef(isListening);
+  listeningRef.current = isListening;
 
   useEffect(() => {
+    // Check if the browser supports the Web Speech API.
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Your browser does not support Speech Recognition");
+      setStatusText("Sorry, your browser doesn't support the Web Speech API.");
       return;
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous = true; // Keep listening even after the user stops speaking.
+    recognition.interimResults = true; // Get results as the user is speaking.
     recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognitionRef.current = recognition;
 
+    // Event handler for when speech is recognized.
     recognition.onresult = (event) => {
-      const lastResult = event.results[event.results.length - 1][0].transcript
-        .trim()
-        .toLowerCase();
-      console.log("Heard:", lastResult);
-      setTranscript(lastResult);
+      let finalTranscript = "";
+      let interimTranscript = "";
 
-      if (lastResult.includes("hello")) {
-        setIsActive(true);
-        speak("Hi, I am Anton. How can I help you?");
-        return;
-      }
-
-      if (lastResult.includes("bye")) {
-        setIsActive(false);
-        speak("Goodbye!");
-        return;
-      }
-
-      if (isActive) {
-        const foundObject = COCO_CLASSES.find((obj) =>
-          lastResult.includes(obj)
-        );
-        if (foundObject) {
-          speak(`I heard you mention: ${foundObject}`);
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
         } else {
-          speak("I didn't recognize any object from your sentence.");
+          interimTranscript += event.results[i][0].transcript;
         }
       }
+
+      setTranscript(interimTranscript); // Display the live, interim transcript.
+      const command = finalTranscript.trim().toLowerCase();
+
+      // --- Activation ("Hello Anton") ---
+      if (!listeningRef.current && command.includes("hello anton")) {
+        setIsListening(true);
+        setStatusText("I'm listening...");
+        speak("I'm listening...");
+        return;
+      }
+
+      // --- Deactivation ("Bye Anton") ---
+      if (listeningRef.current && command.includes("bye")) {
+        setIsListening(false);
+        setStatusText('Goodbye! Say "Hello Anton" to start again.');
+        speak("Goodbye!");
+        setTranscript("");
+        return;
+      }
+
+      // --- Command Handling ---
+      if (listeningRef.current && finalTranscript) {
+        const response =
+          commandResponses[command] || `I heard you say: ${finalTranscript}`;
+        setStatusText(response);
+        speak(response);
+        setTranscript(""); // Clear transcript after responding.
+      }
     };
 
+    // Event handler for when the recognition service ends.
+    recognition.onend = () => {
+      // The service can sometimes stop unexpectedly. Restart it to ensure continuous listening.
+      recognition.start();
+    };
+
+    // Event handler for recognition errors.
     recognition.onerror = (event) => {
-      console.error("Speech recognition error", event.error);
+      console.error("Speech recognition error:", event.error);
     };
 
+    // Start the recognition service.
     recognition.start();
 
-    return () => recognition.stop();
-  }, [isActive]);
+    // Cleanup function to stop recognition when the component unmounts.
+    return () => {
+      recognition.onend = null; // Prevent restart on unmount
+      recognition.stop();
+    };
+  }, []); // Empty dependency array ensures this effect runs only once.
 
-  const speak = (text) => {
-    const synth = window.speechSynthesis;
+  // Function to make the browser speak a given text.
+  const speak = (text: string) => {
+    window.speechSynthesis.cancel(); // Cancel any speech in progress.
     const utterance = new SpeechSynthesisUtterance(text);
-    synth.speak(utterance);
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-      <div
-        className={`w-40 h-40 rounded-full mb-8 transition-all duration-500 ${
-          isActive
-            ? "bg-gradient-to-tr from-green-400 to-blue-500 animate-pulse"
-            : "bg-gray-700"
-        }`}
-      />
+    <main className="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-6 font-sans select-none">
+      <div className="flex-grow"></div>
 
-      <div className="bg-gray-800 p-4 rounded-xl w-full max-w-md shadow-lg text-center text-lg">
-        {isActive ? (
-          <p className="text-green-400">Anton is listening...</p>
-        ) : (
-          <p className="text-gray-400">Say "Hello Anton" to activate</p>
-        )}
-        <p className="mt-2 text-sm text-gray-300">{transcript}</p>
+      {/* The main animated circle */}
+      <div className="relative flex items-center justify-center">
+        <div
+          className={`
+            transition-all duration-500
+            w-56 h-56 sm:w-72 sm:h-72 
+            rounded-full
+            bg-gradient-to-br from-purple-500 to-indigo-700
+            ${isListening ? "animate-pulseGlow" : "shadow-lg"}
+          `}
+        ></div>
+        {/* Text inside the circle indicating status */}
+        <div className="absolute text-xl font-semibold tracking-wider">
+          {isListening ? "Listening..." : "Idle"}
+        </div>
       </div>
-    </div>
+
+      <div className="flex-grow"></div>
+
+      {/* Container for status and transcript text at the bottom */}
+      <div className="w-full max-w-lg text-center h-28 flex flex-col justify-end">
+        <p className="text-2xl font-medium mb-2">{statusText}</p>
+        <p className="text-gray-400 text-lg min-h-[28px]">
+          {transcript && `"${transcript}"`}
+        </p>
+      </div>
+    </main>
   );
 }
 

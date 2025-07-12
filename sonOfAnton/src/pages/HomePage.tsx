@@ -132,6 +132,7 @@ function HomePage() {
               headers: { "Content-Type": "application/json" },
             });
 
+            // Poll instructions until received
             const pollInstruction = () => {
               return new Promise((resolve, reject) => {
                 const instructionInterval = setInterval(async () => {
@@ -156,7 +157,9 @@ function HomePage() {
                             "https://share.aavashlamichhane.com.np/api/translate",
                             {
                               method: "POST",
-                              headers: { "Content-Type": "application/json" },
+                              headers: {
+                                "Content-Type": "application/json",
+                              },
                               body: JSON.stringify({
                                 text: spokenInstruction,
                               }),
@@ -170,11 +173,10 @@ function HomePage() {
                         }
                       }
 
-                      speak(spokenInstruction);
-                      resolve(spokenInstruction);
+                      responseText = spokenInstruction;
 
-                      // 🟢 Start polling speak-current
-                      const speakCurrentInterval = setInterval(async () => {
+                      // Recursive playback function to repeatedly play audio without overlap
+                      const playSpeakCurrent = async () => {
                         try {
                           const response = await fetch(
                             "https://share.aavashlamichhane.com.np/api/speak_current",
@@ -193,17 +195,29 @@ function HomePage() {
                           const audio = new Audio(audioUrl);
                           audio.volume = 0.8;
                           audio.play();
-                          audio.onended = () => URL.revokeObjectURL(audioUrl);
+
+                          // Wait for audio to finish
+                          await new Promise((res) => {
+                            audio.onended = () => {
+                              URL.revokeObjectURL(audioUrl);
+                              res();
+                            };
+                          });
+
+                          // Wait 2 seconds before playing again
+                          await new Promise((res) => setTimeout(res, 2000));
+
+                          // Repeat the playback
+                          playSpeakCurrent();
                         } catch (err) {
                           console.error("speak-current error:", err);
-                          clearInterval(speakCurrentInterval);
+                          // stop repeating on error
                         }
-                      }, 2000);
+                      };
 
-                      setTimeout(
-                        () => clearInterval(speakCurrentInterval),
-                        30000
-                      );
+                      playSpeakCurrent();
+
+                      resolve(spokenInstruction);
                     }
                   } catch (err) {
                     clearInterval(instructionInterval);

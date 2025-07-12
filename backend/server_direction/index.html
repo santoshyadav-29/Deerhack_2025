@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧭 Navigation Assistant</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            margin-bottom: 20px;
+            color: #4ecdc4;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #feca57, #ff9ff3);
+            color: white;
+        }
+
+        .btn-info {
+            background: linear-gradient(45deg, #3742fa, #2f3542);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .indicator-green {
+            background-color: #2ecc71;
+            box-shadow: 0 0 10px #2ecc71;
+        }
+
+        .indicator-red {
+            background-color: #e74c3c;
+            box-shadow: 0 0 10px #e74c3c;
+        }
+
+        .indicator-orange {
+            background-color: #f39c12;
+            box-shadow: 0 0 10px #f39c12;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .instruction-display {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .instruction-display::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .instruction-text {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .instruction-meta {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        .video-container {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .video-feed {
+            max-width: 100%;
+            height: auto;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .select-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .select-container select {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .select-container::after {
+            content: '\f107';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #4ecdc4;
+            pointer-events: none;
+        }
+
+        .audio-indicator {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+            padding: 10px 20px;
+            border-radius: 25px;
+            margin-top: 15px;
+            animation: audioPlaying 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes audioPlaying {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        .technical-info {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin-top: 15px;
+            border-left: 4px solid #4ecdc4;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .instruction-text {
+                font-size: 1.2rem;
+            }
+
+            .card {
+                padding: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .instruction-text {
+                font-size: 1.1rem;
+            }
+
+            .btn {
+                padding: 10px 15px;
+                font-size: 0.9rem;
+            }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+        }
+
+        .notification.error {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-compass"></i> Navigation Assistant</h1>
+            <p>Real-time object navigation with voice guidance</p>
+        </div>
+
+        <div class="grid">
+            <!-- Controls Panel -->
+            <div class="card">
+                <h3><i class="fas fa-cogs"></i> Controls</h3>
+                
+                <div class="controls-grid">
+                    <button class="btn btn-primary" onclick="startNavigation()" id="startBtn">
+                        <i class="fas fa-play"></i> Start
+                    </button>
+                    <button class="btn btn-danger" onclick="stopNavigation()" id="stopBtn">
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                    <button class="btn btn-warning" onclick="resetTracking()">
+                        <i class="fas fa-refresh"></i> Reset
+                    </button>
+                </div>
+
+                <div class="select-container">
+                    <select id="targetSelect">
+                        <option value="bottle">🍼 Bottle</option>
+                        <option value="cup">☕ Cup</option>
+                        <option value="cell phone">📱 Cell Phone</option>
+                        <option value="book">📚 Book</option>
+                        <option value="laptop">💻 Laptop</option>
+                        <option value="chair">🪑 Chair</option>
+                        <option value="couch">🛋️ Couch</option>
+                        <option value="mouse">🖱️ Mouse</option>
+                        <option value="keyboard">⌨️ Keyboard</option>
+                        <option value="tv">📺 TV</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-info" onclick="changeTarget()" style="width: 100%;">
+                    <i class="fas fa-target"></i> Change Target
+                </button>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="speakCurrent()" style="width: 100%; margin-bottom: 10px;">
+                        <i class="fas fa-volume-up"></i> Speak Current
+                    </button>
+                    <button class="btn btn-info" onclick="testTTS()" style="width: 100%;">
+                        <i class="fas fa-music"></i> Test TTS
+                    </button>
+                </div>
+
+                <div class="audio-indicator" id="autoTtsIndicator">
+                    <i class="fas fa-volume-up"></i>
+                    <span>Auto TTS Playing...</span>
+                    <div class="loading"></div>
+                </div>
+            </div>
+
+            <!-- System Status -->
+            <div class="card">
+                <h3><i class="fas fa-info-circle"></i> System Status</h3>
+                
+                <div class="status-grid" id="systemStatus">
+                    <div class="status-item">
+                        <span class="status-indicator indicator-red"></span>
+                        <span>Loading...</span>
+                    </div>
+                </div>
+
+                <div class="status-grid" id="detectionStatus">
+                    <div class="status-item">
+                        <span class="status-indicator indicator-red"></span>
+                        <span>Person: Unknown</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-indicator indicator-red"></span>
+                        <span>Target: Unknown</span>
+                    </div>
+                </div>
+
+                <div class="status-grid" id="navigationInfo">
+                    <div class="status-item">
+                        <strong>Distance:</strong> Unknown
+                    </div>
+                    <div class="status-item">
+                        <strong>Direction:</strong> Unknown
+                    </div>
+                    <div class="status-item">
+                        <strong>Facing Target:</strong> Unknown
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Instruction Display -->
+        <div class="instruction-display" id="instructionDisplay">
+            <div class="instruction-text" id="mainInstruction">
+                Initializing navigation assistant...
+            </div>
+            <div class="instruction-meta" id="instructionMeta">
+                Getting ready to help you navigate
+            </div>
+        </div>
+
+        <!-- Video Feed -->
+        <div class="video-container">
+            <h3 style="margin-bottom: 15px;"><i class="fas fa-video"></i> Live Camera Feed</h3>
+            <img id="videoFeed" src="http://localhost:8000/api/video_feed" class="video-feed" alt="Camera feed">
+        </div>
+
+        <!-- Technical Information -->
+        <div class="card">
+            <h3><i class="fas fa-code"></i> Technical Information</h3>
+            <div class="technical-info" id="technicalInfo">
+                Technical: Initializing...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'http://localhost:8000';
+        
+        // Global variables
+        let ws;
+        let isNavigationActive = false;
+        let currentAudio = null;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            connectWebSocket();
+            updateStatus();
+            setInterval(updateStatus, 5000);
+            
+            // Enable audio autoplay by requesting user interaction first
+            document.addEventListener('click', enableAudio, { once: true });
+            document.addEventListener('touchstart', enableAudio, { once: true });
+        });
+
+        // Enable audio context for automatic playback
+        function enableAudio() {
+            const audio = new Audio();
+            audio.play().catch(() => {
+                console.log('Audio autoplay requires user interaction');
+            });
+        }
+
+        // WebSocket connection for real-time updates
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`ws://localhost:8000/ws`);
+            
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+                showNotification('Connected to navigation server', 'success');
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    // Handle automatic TTS messages
+                    if (data.type === 'auto_tts') {
+                        console.log('Auto TTS triggered:', data.text);
+                        playAutoTTS(data.text);
+                        return;
+                    }
+                    
+                    // Handle regular navigation instruction updates
+                    if (data.instruction) {
+                        updateUI(data);
+                    }
+                } catch (error) {
+                    console.error('WebSocket message parsing error:', error);
+                }
+            };
+            
+            ws.onclose = function() {
+                console.log('WebSocket disconnected, attempting to reconnect...');
+                showNotification('Connection lost, reconnecting...', 'error');
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        // Update UI with new instruction data
+        function updateUI(instruction) {
+            // Update main instruction
+            document.getElementById('mainInstruction').textContent = instruction.natural_language;
+            document.getElementById('instructionMeta').textContent = `Confidence: ${(instruction.confidence * 100).toFixed(0)}% • ${new Date(instruction.timestamp).toLocaleTimeString()}`;
+            
+            // Update technical info
+            document.getElementById('technicalInfo').textContent = `Technical: ${instruction.instruction}`;
+            
+            // Update detection status
+            const personColor = instruction.person_detected ? 'indicator-green' : 'indicator-red';
+            const targetColor = instruction.target_detected ? 'indicator-green' : 'indicator-red';
+            
+            document.getElementById('detectionStatus').innerHTML = `
+                <div class="status-item">
+                    <span class="status-indicator ${personColor}"></span>
+                    <span>Person: ${instruction.person_detected ? 'Detected' : 'Not detected'}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-indicator ${targetColor}"></span>
+                    <span>Target: ${instruction.target_detected ? 'Detected' : 'Not detected'}</span>
+                </div>
+            `;
+            
+            // Update navigation info
+            const distance = instruction.distance_to_target ? 
+                (instruction.distance_to_target > 100 ? 
+                    `${(instruction.distance_to_target/100).toFixed(1)}m` : 
+                    `${instruction.distance_to_target.toFixed(0)}cm`) : 'Unknown';
+            
+            document.getElementById('navigationInfo').innerHTML = `
+                <div class="status-item">
+                    <strong>Distance:</strong> ${distance}
+                </div>
+                <div class="status-item">
+                    <strong>Direction:</strong> ${instruction.target_direction}
+                </div>
+                <div class="status-item">
+                    <strong>Facing Target:</strong> ${instruction.facing_target ? 'Yes' : 'No'}
+                </div>
+            `;
+        }
+
+        // Play automatic TTS with better error handling
+        async function playAutoTTS(text) {
+            try {
+                console.log('Playing automatic TTS for:', text);
+                
+                // Show auto TTS indicator
+                const indicator = document.getElementById('autoTtsIndicator');
+                if (indicator) {
+                    indicator.style.display = 'flex';
+                }
+
+                // Stop any currently playing audio
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio = null;
+                }
+                
+                // Generate new TTS audio
+                const response = await fetch(`${API_BASE}/api/speak`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        lang: 'en'
+                    })
+                });
+                
+                if (response.ok) {
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    currentAudio = audio;
+                    
+                    // Set volume and play
+                    audio.volume = 0.8;
+                    
+                    const playPromise = audio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            console.log('Auto TTS playback started successfully');
+                        }).catch(error => {
+                            console.error('Auto TTS playback failed:', error);
+                            if (indicator) indicator.style.display = 'none';
+                            showNotification('Audio playback failed. Please interact with the page first.', 'error');
+                        });
+                    }
+                    
+                    // Clean up when playback ends
+                    audio.onended = () => {
+                        URL.revokeObjectURL(audioUrl);
+                        if (indicator) indicator.style.display = 'none';
+                        currentAudio = null;
+                        console.log('Auto TTS playback completed');
+                    };
+                    
+                    // Handle errors
+                    audio.onerror = () => {
+                        if (indicator) indicator.style.display = 'none';
+                        currentAudio = null;
+                        console.error('Audio playback error');
+                    };
+                } else {
+                    console.error('Failed to generate auto TTS audio');
+                    if (indicator) indicator.style.display = 'none';
+                    showNotification('Failed to generate TTS audio', 'error');
+                }
+            } catch (error) {
+                console.error('Auto TTS error:', error);
+                const indicator = document.getElementById('autoTtsIndicator');
+                if (indicator) indicator.style.display = 'none';
+                showNotification('TTS system error', 'error');
+            }
+        }
+
+        // Start navigation
+        async function startNavigation() {
+            try {
+                setButtonLoading('startBtn', true);
+                const response = await fetch(`${API_BASE}/api/start`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    isNavigationActive = true;
+                    showNotification(result.message, 'success');
+                    updateButtonStates();
+                } else {
+                    showNotification(result.detail || 'Failed to start navigation', 'error');
+                }
+                
+                updateStatus();
+            } catch (error) {
+                console.error('Error starting navigation:', error);
+                showNotification('Network error starting navigation', 'error');
+            } finally {
+                setButtonLoading('startBtn', false);
+            }
+        }
+
+        // Stop navigation
+        async function stopNavigation() {
+            try {
+                setButtonLoading('stopBtn', true);
+                const response = await fetch(`${API_BASE}/api/stop`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    isNavigationActive = false;
+                    showNotification(result.message, 'success');
+                    updateButtonStates();
+                    
+                    // Stop any playing audio
+                    if (currentAudio) {
+                        currentAudio.pause();
+                        currentAudio = null;
+                    }
+                    
+                    // Hide TTS indicator
+                    const indicator = document.getElementById('autoTtsIndicator');
+                    if (indicator) indicator.style.display = 'none';
+                } else {
+                    showNotification(result.detail || 'Failed to stop navigation', 'error');
+                }
+                
+                updateStatus();
+            } catch (error) {
+                console.error('Error stopping navigation:', error);
+                showNotification('Network error stopping navigation', 'error');
+            } finally {
+                setButtonLoading('stopBtn', false);
+            }
+        }
+
+        // Reset tracking
+        async function resetTracking() {
+            try {
+                const response = await fetch(`${API_BASE}/api/reset`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(result.message, 'success');
+                } else {
+                    showNotification(result.detail || 'Failed to reset tracking', 'error');
+                }
+            } catch (error) {
+                console.error('Error resetting tracking:', error);
+                showNotification('Network error resetting tracking', 'error');
+            }
+        }
+
+        // Change target
+        async function changeTarget() {
+            const target = document.getElementById('targetSelect').value;
+            try {
+                const response = await fetch(`${API_BASE}/api/change_target/${encodeURIComponent(target)}`, { 
+                    method: 'POST' 
+                });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`Target changed to ${target}`, 'success');
+                } else {
+                    showNotification(result.detail || 'Failed to change target', 'error');
+                }
+                
+                updateStatus();
+            } catch (error) {
+                console.error('Error changing target:', error);
+                showNotification('Network error changing target', 'error');
+            }
+        }
+
+        // Speak current instruction
+        async function speakCurrent() {
+            try {
+                const response = await fetch(`${API_BASE}/api/speak_current`, { method: 'POST' });
+                
+                if (response.ok) {
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    
+                    audio.volume = 0.8;
+                    await audio.play();
+                    console.log('Playing current instruction audio');
+                    showNotification('Playing current instruction', 'success');
+                    
+                    audio.onended = () => {
+                        URL.revokeObjectURL(audioUrl);
+                    };
+                } else {
+                    const error = await response.json();
+                    showNotification(error.error || 'Failed to generate speech', 'error');
+                }
+            } catch (error) {
+                console.error('Error speaking current instruction:', error);
+                showNotification('Error playing speech', 'error');
+            }
+        }
+
+        // Test TTS
+        async function testTTS() {
+            try {
+                const testText = "Hello! This is a test of the text to speech system. Navigation assistant is working correctly.";
+                const response = await fetch(`${API_BASE}/api/speak`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: testText,
+                        lang: 'en'
+                    })
+                });
+                
+                if (response.ok) {
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    
+                    audio.volume = 0.8;
+                    await audio.play();
+                    console.log('Playing test TTS audio');
+                    showNotification('Test TTS playing', 'success');
+                    
+                    audio.onended = () => {
+                        URL.revokeObjectURL(audioUrl);
+                    };
+                } else {
+                    const error = await response.json();
+                    showNotification(error.error || 'Failed to generate test speech', 'error');
+                }
+            } catch (error) {
+                console.error('Error testing TTS:', error);
+                showNotification('Error testing TTS', 'error');
+            }
+        }
+
+        // Update system status
+        async function updateStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/api/status`);
+                if (response.ok) {
+                    const status = await response.json();
+                    
+                    isNavigationActive = status.active;
+                    updateButtonStates();
+                    
+                    const statusHtml = `
+                        <div class="status-item">
+                            <span class="status-indicator ${status.active ? 'indicator-green' : 'indicator-red'}"></span>
+                            <span>Navigation: ${status.active ? 'Active' : 'Inactive'}</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-indicator ${status.camera_connected ? 'indicator-green' : 'indicator-red'}"></span>
+                            <span>Camera: ${status.camera_connected ? 'Connected' : 'Disconnected'}</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-indicator indicator-green"></span>
+                            <span>Target: ${status.target_item}</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-indicator ${status.person_locked ? 'indicator-green' : 'indicator-orange'}"></span>
+                            <span>Person: ${status.person_locked ? 'Locked' : 'Tracking'}</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-indicator ${status.target_locked ? 'indicator-green' : 'indicator-orange'}"></span>
+                            <span>Target: ${status.target_locked ? 'Locked' : 'Searching'}</span>
+                        </div>
+                    `;
+                    
+                    document.getElementById('systemStatus').innerHTML = statusHtml;
+                }
+            } catch (error) {
+                console.error('Error updating status:', error);
+                document.getElementById('systemStatus').innerHTML = `
+                    <div class="status-item">
+                        <span class="status-indicator indicator-red"></span>
+                        <span>Connection Error</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Button state management
+        function updateButtonStates() {
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            
+            if (isNavigationActive) {
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } else {
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
+
+        function setButtonLoading(buttonId, loading) {
+            const button = document.getElementById(buttonId);
+            if (loading) {
+                button.disabled = true;
+                button.innerHTML = '<div class="loading"></div> Loading...';
+            } else {
+                button.disabled = false;
+                if (buttonId === 'startBtn') {
+                    button.innerHTML = '<i class="fas fa-play"></i> Start';
+                } else if (buttonId === 'stopBtn') {
+                    button.innerHTML = '<i class="fas fa-stop"></i> Stop';
+                }
+            }
+        }
+
+        // Notification system
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Handle video feed errors
+        document.getElementById('videoFeed').onerror = function() {
+            this.style.display = 'none';
+            const container = this.parentElement;
+            if (!container.querySelector('.error-message')) {
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'error-message';
+                errorMsg.style.cssText = 'color: #e74c3c; padding: 20px; text-align: center;';
+                errorMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Camera feed unavailable';
+                container.appendChild(errorMsg);
+            }
+        };
+    </script>
+</body>
+</html>

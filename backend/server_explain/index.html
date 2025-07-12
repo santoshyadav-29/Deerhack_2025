@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Object Detection WebSocket Stream</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f0f0f0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .video-section {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    video {
+      border: 2px solid #ddd;
+      border-radius: 8px;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+    .btn-primary {
+      background-color: #007bff;
+      color: white;
+    }
+    .btn-primary:hover {
+      background-color: #0056b3;
+    }
+    .btn-danger {
+      background-color: #dc3545;
+      color: white;
+    }
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
+    .btn-success {
+      background-color: #28a745;
+      color: white;
+    }
+    .btn-success:hover {
+      background-color: #218838;
+    }
+    select, input {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .status-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .status-box {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #007bff;
+    }
+    .detection-results {
+      background: #e9ecef;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+    }
+    .detected-object {
+      background: white;
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 4px;
+      border-left: 3px solid #6c757d;
+    }
+    .target-detected {
+      border-left-color: #28a745 !important;
+      background: #d4edda !important;
+    }
+    .connection-status {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .connected {
+      background-color: #28a745;
+    }
+    .disconnected {
+      background-color: #dc3545;
+    }
+    .alert {
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+    .alert-success {
+      color: #155724;
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+    }
+    .alert-danger {
+      color: #721c24;
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 Object Detection WebSocket Stream</h1>
+      <p>Real-time object detection with YOLO via WebSocket</p>
+    </div>
+
+    <!-- Connection Status -->
+    <div class="alert" id="connection-alert">
+      <span class="connection-status" id="connection-indicator"></span>
+      <span id="connection-text">Connecting...</span>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button id="start-btn" class="btn-primary">📹 Start Camera</button>
+      <button id="stop-btn" class="btn-danger hidden">⏹️ Stop Stream</button>
+      
+      <select id="target-select">
+        <option value="">Select Target Object</option>
+      </select>
+      
+      <button id="set-target-btn" class="btn-success">🎯 Set Target</button>
+      <button id="get-classes-btn" class="btn-primary">📋 Load Classes</button>
+      
+      <input type="text" id="custom-target" placeholder="Or type custom target..." />
+      <button id="set-custom-btn" class="btn-success">✅ Set Custom</button>
+    </div>
+
+    <!-- Video Feed -->
+    <div class="video-section">
+      <video id="video" autoplay playsinline width="640" height="480"></video>
+    </div>
+
+    <!-- Status Panel -->
+    <div class="status-panel">
+      <!-- Current Status -->
+      <div class="status-box">
+        <h3>📊 Current Status</h3>
+        <p><strong>Target:</strong> <span id="current-target">None</span></p>
+        <p><strong>Streaming:</strong> <span id="streaming-status">Stopped</span></p>
+        <p><strong>FPS:</strong> <span id="fps-display">0</span></p>
+        <p><strong>Frame Count:</strong> <span id="frame-count">0</span></p>
+      </div>
+
+      <!-- Detection Status -->
+      <div class="status-box">
+        <h3>🔍 Detection Status</h3>
+        <p><strong>Target Found:</strong> <span id="target-found">❌</span></p>
+        <p><strong>Total Objects:</strong> <span id="total-objects">0</span></p>
+        <p><strong>Last Detection:</strong> <span id="last-detection">Never</span></p>
+      </div>
+    </div>
+
+    <!-- Detection Results -->
+    <div class="detection-results">
+      <h3>🎯 Detection Results</h3>
+      <div id="detected-objects-list">
+        <p>No objects detected yet. Start streaming to see results.</p>
+      </div>
+    </div>
+
+    <!-- Debug Log -->
+    <div class="status-box" style="margin-top: 20px;">
+      <h3>📝 Debug Log</h3>
+      <div id="debug-log" style="height: 150px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px;">
+        <p>Ready to start...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // DOM Elements
+    const video = document.getElementById("video");
+    const canvas = document.createElement("canvas");
+    const startBtn = document.getElementById("start-btn");
+    const stopBtn = document.getElementById("stop-btn");
+    const targetSelect = document.getElementById("target-select");
+    const setTargetBtn = document.getElementById("set-target-btn");
+    const getClassesBtn = document.getElementById("get-classes-btn");
+    const customTargetInput = document.getElementById("custom-target");
+    const setCustomBtn = document.getElementById("set-custom-btn");
+    
+    // Status elements
+    const connectionIndicator = document.getElementById("connection-indicator");
+    const connectionText = document.getElementById("connection-text");
+    const connectionAlert = document.getElementById("connection-alert");
+    const currentTargetSpan = document.getElementById("current-target");
+    const streamingStatus = document.getElementById("streaming-status");
+    const fpsDisplay = document.getElementById("fps-display");
+    const frameCountSpan = document.getElementById("frame-count");
+    const targetFoundSpan = document.getElementById("target-found");
+    const totalObjectsSpan = document.getElementById("total-objects");
+    const lastDetectionSpan = document.getElementById("last-detection");
+    const detectedObjectsList = document.getElementById("detected-objects-list");
+    const debugLog = document.getElementById("debug-log");
+
+    // State variables
+    let streaming = false;
+    let ws = null;
+    let frameCount = 0;
+    let lastFrameTime = Date.now();
+    let streamInterval = null;
+
+    // Initialize WebSocket connection
+    function connectWebSocket() {
+      const wsUrl = location.origin.replace(/^http/, 'ws') + "/ws/stream";
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        log("✅ WebSocket connected");
+        updateConnectionStatus(true);
+        // Auto-load classes when connection is established
+        setTimeout(() => {
+          getClasses();
+        }, 500);
+      };
+
+      ws.onclose = () => {
+        log("❌ WebSocket disconnected");
+        updateConnectionStatus(false);
+        // Attempt to reconnect after 3 seconds
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onerror = (error) => {
+        log("❌ WebSocket error: " + error);
+        updateConnectionStatus(false);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleWebSocketMessage(data);
+        } catch (e) {
+          log("📥 Server: " + event.data);
+        }
+      };
+    }
+
+    // Handle WebSocket messages
+    function handleWebSocketMessage(data) {
+      switch(data.type) {
+        case "detection_result":
+          handleDetectionResult(data);
+          break;
+        case "target_set":
+          log(`🎯 Target set to: ${data.target}`);
+          currentTargetSpan.textContent = data.target || "None";
+          break;
+        case "available_classes":
+          loadClassesIntoSelect(data.classes);
+          break;
+        case "error":
+          log(`❌ Error: ${data.message}`);
+          break;
+        default:
+          log(`📥 Unknown message type: ${data.type}`);
+      }
+    }
+
+    // Handle detection results
+    function handleDetectionResult(data) {
+      // Update detection status
+      targetFoundSpan.textContent = data.target_detected ? "✅ YES" : "❌ NO";
+      totalObjectsSpan.textContent = data.total_objects;
+      lastDetectionSpan.textContent = new Date().toLocaleTimeString();
+
+      // Update detected objects list
+      if (data.detected_objects && data.detected_objects.length > 0) {
+        let objectsHtml = "";
+        data.detected_objects.forEach(obj => {
+          const isTarget = obj.class === data.target;
+          const className = isTarget ? "detected-object target-detected" : "detected-object";
+          const icon = isTarget ? "🎯" : "🔍";
+          objectsHtml += `
+            <div class="${className}">
+              ${icon} <strong>${obj.class}</strong> - Confidence: ${(obj.confidence * 100).toFixed(1)}%
+            </div>
+          `;
+        });
+        detectedObjectsList.innerHTML = objectsHtml;
+      } else {
+        detectedObjectsList.innerHTML = "<p>No objects detected in current frame.</p>";
+      }
+
+      // Play sound or visual feedback for target detection
+      if (data.target_detected) {
+        // Could add sound notification here
+        log(`🎯 TARGET FOUND: ${data.target}!`);
+      }
+    }
+
+    // Update connection status UI
+    function updateConnectionStatus(connected) {
+      if (connected) {
+        connectionIndicator.className = "connection-status connected";
+        connectionText.textContent = "Connected to server";
+        connectionAlert.className = "alert alert-success";
+      } else {
+        connectionIndicator.className = "connection-status disconnected";
+        connectionText.textContent = "Disconnected from server";
+        connectionAlert.className = "alert alert-danger";
+      }
+    }
+
+    // Load YOLO classes into select dropdown
+    function loadClassesIntoSelect(classes) {
+      targetSelect.innerHTML = '<option value="">Select Target Object</option>';
+      classes.sort().forEach(className => {
+        const option = document.createElement('option');
+        option.value = className;
+        option.textContent = className.charAt(0).toUpperCase() + className.slice(1);
+        targetSelect.appendChild(option);
+      });
+      log(`📋 Loaded ${classes.length} available classes`);
+    }
+
+    // Start camera stream
+    function startStream() {
+      if (streaming) return;
+      
+      navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: 640, 
+          height: 480,
+          facingMode: 'environment' // Use back camera on mobile
+        } 
+      }).then(stream => {
+        video.srcObject = stream;
+        streaming = true;
+        
+        startBtn.classList.add("hidden");
+        stopBtn.classList.remove("hidden");
+        streamingStatus.textContent = "Active";
+        
+        log("📹 Camera stream started");
+        
+        const ctx = canvas.getContext("2d");
+        frameCount = 0;
+        
+        streamInterval = setInterval(() => {
+          if (!streaming || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0);
+          
+          canvas.toBlob(blob => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              ws.send(reader.result);
+              frameCount++;
+              frameCountSpan.textContent = frameCount;
+              
+              // Calculate FPS
+              const now = Date.now();
+              const fps = Math.round(1000 / (now - lastFrameTime));
+              fpsDisplay.textContent = fps;
+              lastFrameTime = now;
+            };
+            reader.readAsDataURL(blob);
+          }, "image/jpeg", 0.8);
+        }, 100); // ~10 FPS
+        
+      }).catch(error => {
+        log("❌ Camera access error: " + error.message);
+        alert("Failed to access camera: " + error.message);
+      });
+    }
+
+    // Stop camera stream
+    function stopStream() {
+      if (!streaming) return;
+      
+      streaming = false;
+      if (streamInterval) {
+        clearInterval(streamInterval);
+        streamInterval = null;
+      }
+      
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+      
+      startBtn.classList.remove("hidden");
+      stopBtn.classList.add("hidden");
+      streamingStatus.textContent = "Stopped";
+      
+      log("⏹️ Camera stream stopped");
+    }
+
+    // Set target object
+    function setTarget(target) {
+      if (!target) {
+        alert("Please select or enter a target object");
+        return;
+      }
+      
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "set_target",
+          target: target
+        }));
+        log(`🎯 Setting target to: ${target}`);
+      } else {
+        log("❌ WebSocket not connected");
+      }
+    }
+
+    // Get available classes
+    function getClasses() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "get_classes"
+        }));
+        log("📋 Requesting available classes...");
+      } else {
+        log("❌ WebSocket not connected");
+      }
+    }
+
+    // Log function
+    function log(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = `[${timestamp}] ${message}`;
+      console.log(logEntry);
+      
+      const logDiv = document.createElement('div');
+      logDiv.textContent = logEntry;
+      debugLog.appendChild(logDiv);
+      debugLog.scrollTop = debugLog.scrollHeight;
+    }
+
+    // Event listeners
+    startBtn.onclick = startStream;
+    stopBtn.onclick = stopStream;
+    
+    setTargetBtn.onclick = () => {
+      const target = targetSelect.value;
+      setTarget(target);
+    };
+    
+    setCustomBtn.onclick = () => {
+      const target = customTargetInput.value.trim();
+      setTarget(target);
+      customTargetInput.value = "";
+    };
+    
+    getClassesBtn.onclick = () => {
+      getClasses();
+      log("🔄 Manually requesting classes...");
+    };
+    
+    // Enter key support for custom target
+    customTargetInput.onkeypress = (e) => {
+      if (e.key === 'Enter') {
+        setCustomBtn.click();
+      }
+    };
+
+    // Initialize connection
+    connectWebSocket();
+    
+    // Auto-load classes on page load with retry mechanism
+    let classLoadAttempts = 0;
+    function tryLoadClasses() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        getClasses();
+      } else if (classLoadAttempts < 5) {
+        classLoadAttempts++;
+        setTimeout(tryLoadClasses, 1000);
+      }
+    }
+    
+    setTimeout(tryLoadClasses, 1000);
+  </script>
+</body>
+</html>
